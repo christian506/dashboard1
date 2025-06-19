@@ -12,86 +12,73 @@ st.markdown("Explore global patterns of smoking by gender, age, and country usin
 # ----------------------
 # Load Dataset
 # ----------------------
-@st.cache_data
 def load_data():
-    return pd.read_csv("smoking.csv")
+    df = pd.read_csv("smoking.csv")
+    return df
 
 df = load_data()
 
+# Use 'Data.Percentage.Total' as the prevalence column
 prevalence_col = 'Data.Percentage.Total'
 
 # ----------------------
-# Sidebar Filters
+# Filters
 # ----------------------
 with st.sidebar:
     st.header("🔍 Filter Data")
-    selected_years = st.multiselect("Select Year(s):", options=sorted(df['Year'].unique()), default=sorted(df['Year'].unique()))
-    selected_countries = st.multiselect("Select Country/Countries:", options=sorted(df['Country'].unique()), default=sorted(df['Country'].unique()))
+    selected_years = st.multiselect("Select Year(s):", options=df['Year'].unique(), default=df['Year'].unique())
+    selected_countries = st.multiselect("Select Country/Countries:", options=df['Country'].unique(), default=df['Country'].unique())
 
 filtered_df = df[(df["Year"].isin(selected_years)) & (df["Country"].isin(selected_countries))]
 
 # ----------------------
-# KPIs Row
+# Key Metrics
 # ----------------------
 st.subheader("📊 Summary Statistics")
-kpi1, kpi2, kpi3 = st.columns(3)
-kpi1.metric("Total Records", f"{filtered_df.shape[0]}")
-kpi2.metric("Unique Countries", f"{filtered_df['Country'].nunique()}")
-kpi3.metric("Avg. Smoking Rate (%)", f"{filtered_df[prevalence_col].mean():.2f}")
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Records", f"{filtered_df.shape[0]}")
+col2.metric("Unique Countries", f"{filtered_df['Country'].nunique()}")
+col3.metric("Average Smoking Rate (%)", f"{filtered_df[prevalence_col].mean():.2f}")
 
 # ----------------------
-# Row 1: Top Countries vs Gender
+# Top Smoking Countries
 # ----------------------
-row1_col1, row1_col2 = st.columns(2)
-
-with row1_col1:
-    st.markdown("### 🌍 Top 10 Countries by Smoking Rate")
-    top_countries = filtered_df.groupby("Country")[prevalence_col].mean().sort_values(ascending=False).head(10).reset_index()
-    fig1 = px.bar(top_countries, x="Country", y=prevalence_col,
-                  title="Top 10 Countries with Highest Smoking Prevalence",
-                  labels={prevalence_col: "Smoking Prevalence (%)"})
-    st.plotly_chart(fig1, use_container_width=True)
-
-with row1_col2:
-    st.markdown("### 🧑‍🤝‍🧑 Smoking by Gender")
-    if 'Data.Percentage.Male' in df.columns and 'Data.Percentage.Female' in df.columns:
-        gender_df = filtered_df.melt(id_vars=['Country', 'Year'],
-                                     value_vars=['Data.Percentage.Male', 'Data.Percentage.Female'],
-                                     var_name='Gender', value_name='Smoking Prevalence (%)')
-        gender_df["Gender"] = gender_df["Gender"].str.extract(r"(\w+)$")
-        fig2 = px.box(gender_df, x="Gender", y='Smoking Prevalence (%)', color="Gender",
-                      points="all", title="Smoking Distribution by Gender")
-        st.plotly_chart(fig2, use_container_width=True)
-    else:
-        st.info("Gender data not available in the dataset.")
+st.subheader("🌍 Top 10 Countries by Smoking Rate")
+top_countries = filtered_df.groupby("Country")[prevalence_col].mean().sort_values(ascending=False).head(10)
+fig1 = px.bar(top_countries, orientation="v", title="Top 10 Countries with Highest Smoking Prevalence", labels={"value": "Smoking Prevalence (%)", "Country": "Country"})
+st.plotly_chart(fig1, use_container_width=True)
 
 # ----------------------
-# Row 2: Age (if available) vs Map
+# Gender Analysis
 # ----------------------
-row2_col1, row2_col2 = st.columns(2)
+st.subheader("🧑‍🤝‍🧑 Smoking by Gender")
+# Assuming 'Data.Percentage.Male' and 'Data.Percentage.Female' are the gender columns
+if 'Data.Percentage.Male' in df.columns and 'Data.Percentage.Female' in df.columns:
+    gender_df = filtered_df.melt(id_vars=['Country', 'Year'], value_vars=['Data.Percentage.Male', 'Data.Percentage.Female'], var_name='Gender', value_name='Smoking Prevalence (%)')
+    fig2 = px.box(gender_df, x="Gender", y='Smoking Prevalence (%)', color="Gender", points="all", title="Smoking Distribution by Gender")
+    st.plotly_chart(fig2, use_container_width=True)
+else:
+    st.info("Gender data not available in the dataset.")
 
-with row2_col1:
-    if "Age Group" in df.columns:
-        st.markdown("### 👵 Smoking by Age Group")
-        fig3 = px.violin(filtered_df, x="Age Group", y=prevalence_col,
-                         box=True, points="all", color="Age Group",
-                         title="Smoking Prevalence by Age Group")
-        st.plotly_chart(fig3, use_container_width=True)
 
-with row2_col2:
-    st.markdown("### 🗺️ Smoking Prevalence Map")
+# ----------------------
+# Age Group Analysis (if available)
+# ----------------------
+if "Age Group" in df.columns:
+    st.subheader("👵 Smoking by Age Group")
+    fig3 = px.violin(filtered_df, x="Age Group", y=prevalence_col, box=True, points="all", color="Age Group")
+    st.plotly_chart(fig3, use_container_width=True)
+
+# ----------------------
+# Map View (if geo available)
+# ----------------------
+if "Country" in df.columns:
     try:
+        st.subheader("🗺️ Smoking Prevalence Map")
         country_avg = filtered_df.groupby("Country")[prevalence_col].mean().reset_index()
         fig4 = px.choropleth(country_avg, locations="Country", locationmode="country names",
-                             color=prevalence_col, color_continuous_scale="Reds",
-                             title="Average Smoking Prevalence by Country")
+                             color=prevalence_col,
+                             color_continuous_scale="Reds", title="Average Smoking Prevalence by Country")
         st.plotly_chart(fig4, use_container_width=True)
     except Exception as e:
         st.warning(f"Map not displayed due to: {e}")
-
-# ----------------------
-# Optional: Expandable Raw Data Table
-# ----------------------
-with st.expander("📄 View Filtered Data Table"):
-    st.dataframe(filtered_df.head(100))
-
