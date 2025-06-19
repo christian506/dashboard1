@@ -68,7 +68,15 @@ with row1_col2:
 # ----------------------
 # Row 2: Age (if available) vs Map
 # ----------------------
-row2_col2 = st.columns(2)
+row2_col1, row2_col2 = st.columns(2)
+
+with row2_col1:
+    if "Age Group" in df.columns:
+        st.markdown("### 👵 Smoking by Age Group")
+        fig3 = px.violin(filtered_df, x="Age Group", y=prevalence_col,
+                         box=True, points="all", color="Age Group",
+                         title="Smoking Prevalence by Age Group")
+        st.plotly_chart(fig3, use_container_width=True)
 
 with row2_col2:
     st.markdown("### 🗺️ Smoking Prevalence Map")
@@ -86,3 +94,4 @@ with row2_col2:
 # ----------------------
 with st.expander("📄 View Filtered Data Table"):
     st.dataframe(filtered_df.head(100))
+
